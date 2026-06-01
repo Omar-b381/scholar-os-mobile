@@ -9,13 +9,13 @@ import {
   Alert,
   ActivityIndicator
 } from 'react-native';
-import { useIsFocused } from '@react-navigation/native';
+import { useNavigation } from 'expo-router';
 import { getTasks, saveTask, deleteTask, getAllCourses } from '../../lib/database';
 import { COLORS, GLOBAL_STYLES } from '../../components/Theme';
 import { Square, CheckSquare, Trash2, Plus, Clock, BookOpen } from 'lucide-react-native';
 
 export default function TasksScreen() {
-  const isFocused = useIsFocused();
+  const navigation = useNavigation();
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'pending' | 'completed'>('pending');
   const [tasks, setTasks] = useState<any[]>([]);
@@ -27,10 +27,12 @@ export default function TasksScreen() {
   const [newDueDate, setNewDueDate] = useState('');
 
   useEffect(() => {
-    if (isFocused) {
+    loadData();
+    const unsubscribe = navigation.addListener('focus', () => {
       loadData();
-    }
-  }, [isFocused, activeTab]);
+    });
+    return unsubscribe;
+  }, [navigation, activeTab]);
 
   const loadData = async () => {
     try {

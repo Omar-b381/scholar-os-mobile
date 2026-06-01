@@ -7,15 +7,14 @@ import {
   TouchableOpacity,
   ActivityIndicator
 } from 'react-native';
-import { useIsFocused } from '@react-navigation/native';
-import { useRouter } from 'expo-router';
+import { useRouter, useNavigation } from 'expo-router';
 import { getDbConnection, getActiveLevel } from '../../lib/database';
 import { COLORS, GLOBAL_STYLES } from '../../components/Theme';
 import { Calendar, CheckSquare, Award, BookOpen, Clock, Plus, RefreshCw } from 'lucide-react-native';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const isFocused = useIsFocused();
+  const navigation = useNavigation();
   const [loading, setLoading] = useState(true);
   const [todayClasses, setTodayClasses] = useState<any[]>([]);
   const [gpa, setGpa] = useState<number>(0.0);
@@ -24,10 +23,15 @@ export default function HomeScreen() {
   const [activeLevel, setActiveLevel] = useState<any>(null);
 
   useEffect(() => {
-    if (isFocused) {
+    // Initial load
+    loadDashboardData();
+
+    // Listen to tab focus events to reload data
+    const unsubscribe = navigation.addListener('focus', () => {
       loadDashboardData();
-    }
-  }, [isFocused]);
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   const loadDashboardData = async () => {
     try {

@@ -10,13 +10,13 @@ import {
   Alert,
   ActivityIndicator
 } from 'react-native';
-import { useIsFocused } from '@react-navigation/native';
+import { useNavigation } from 'expo-router';
 import { getGrades, saveGrade, deleteGrade, getAllCourses, getDbConnection } from '../../lib/database';
 import { COLORS, GLOBAL_STYLES } from '../../components/Theme';
 import { Plus, Award, Trash2, X, ChevronLeft, Percent, Lock } from 'lucide-react-native';
 
 export default function GradesScreen() {
-  const isFocused = useIsFocused();
+  const navigation = useNavigation();
   const [loading, setLoading] = useState(true);
   const [grades, setGrades] = useState<any[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
@@ -34,10 +34,15 @@ export default function GradesScreen() {
   const [creditHours, setCreditHours] = useState('3');
 
   useEffect(() => {
-    if (isFocused) {
+    // Initial load
+    loadData();
+
+    // Listen to focus to reload data
+    const unsubscribe = navigation.addListener('focus', () => {
       loadData();
-    }
-  }, [isFocused]);
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   const loadData = async () => {
     try {

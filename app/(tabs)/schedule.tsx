@@ -10,7 +10,7 @@ import {
   Alert,
   ActivityIndicator
 } from 'react-native';
-import { useIsFocused } from '@react-navigation/native';
+import { useNavigation } from 'expo-router';
 import { getDbConnection, getAllCourses, getScheduleSlots, saveScheduleSlot, deleteScheduleSlot, saveCourse } from '../../lib/database';
 import { COLORS, GLOBAL_STYLES } from '../../components/Theme';
 import { Plus, MapPin, User, Clock, Trash2, X } from 'lucide-react-native';
@@ -18,7 +18,7 @@ import { Plus, MapPin, User, Clock, Trash2, X } from 'lucide-react-native';
 const DAYS = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 
 export default function ScheduleScreen() {
-  const isFocused = useIsFocused();
+  const navigation = useNavigation();
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState('الأحد');
   const [slots, setSlots] = useState<any[]>([]);
@@ -33,10 +33,15 @@ export default function ScheduleScreen() {
   const [selectedCourseId, setSelectedCourseId] = useState('');
 
   useEffect(() => {
-    if (isFocused) {
+    // Initial load
+    loadData();
+
+    // Listen to focus to reload data
+    const unsubscribe = navigation.addListener('focus', () => {
       loadData();
-    }
-  }, [isFocused, selectedDay]);
+    });
+    return unsubscribe;
+  }, [navigation, selectedDay]);
 
   const loadData = async () => {
     try {
