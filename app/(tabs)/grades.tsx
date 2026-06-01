@@ -11,8 +11,8 @@ import {
   ActivityIndicator
 } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
-import { getGrades, saveGrade, deleteGrade, getAllCourses, getDbConnection } from '../services/database';
-import { COLORS, GLOBAL_STYLES } from '../components/Theme';
+import { getGrades, saveGrade, deleteGrade, getAllCourses, getDbConnection } from '../../lib/database';
+import { COLORS, GLOBAL_STYLES } from '../../components/Theme';
 import { Plus, Award, Trash2, X, ChevronLeft, Percent, Lock } from 'lucide-react-native';
 
 export default function GradesScreen() {

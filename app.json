@@ -3,6 +3,7 @@
     "name": "scholar-os-mobile",
     "slug": "scholar-os-mobile",
     "version": "1.0.0",
+    "scheme": "scholarosmobile",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",

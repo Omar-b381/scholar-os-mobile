@@ -11,8 +11,8 @@ import {
   ActivityIndicator
 } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
-import { getDbConnection, getAllCourses, getScheduleSlots, saveScheduleSlot, deleteScheduleSlot, saveCourse } from '../services/database';
-import { COLORS, GLOBAL_STYLES } from '../components/Theme';
+import { getDbConnection, getAllCourses, getScheduleSlots, saveScheduleSlot, deleteScheduleSlot, saveCourse } from '../../lib/database';
+import { COLORS, GLOBAL_STYLES } from '../../components/Theme';
 import { Plus, MapPin, User, Clock, Trash2, X } from 'lucide-react-native';
 
 const DAYS = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];

@@ -10,8 +10,8 @@ import {
   ActivityIndicator
 } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
-import { getTasks, saveTask, deleteTask, getAllCourses } from '../services/database';
-import { COLORS, GLOBAL_STYLES } from '../components/Theme';
+import { getTasks, saveTask, deleteTask, getAllCourses } from '../../lib/database';
+import { COLORS, GLOBAL_STYLES } from '../../components/Theme';
 import { Square, CheckSquare, Trash2, Plus, Clock, BookOpen } from 'lucide-react-native';
 
 export default function TasksScreen() {

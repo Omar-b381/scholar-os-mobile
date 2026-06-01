@@ -10,9 +10,9 @@ import {
   ActivityIndicator,
   Alert
 } from 'react-native';
-import { getSyncSettings, setSyncSettings, getDbConnection, getAllLevels, getActiveLevel, archiveAndTransition } from '../services/database';
-import { runSyncCycle, testSupabaseConnection, registerSyncStatusListener } from '../services/syncService';
-import { COLORS, GLOBAL_STYLES } from '../components/Theme';
+import { getSyncSettings, setSyncSettings, getDbConnection, getAllLevels, getActiveLevel, archiveAndTransition } from '../../lib/database';
+import { runSyncCycle, testSupabaseConnection, registerSyncStatusListener } from '../../lib/syncService';
+import { COLORS, GLOBAL_STYLES } from '../../components/Theme';
 import { Shield, Cloud, RefreshCw, AlertCircle, WifiOff, FileText, CheckCircle, Award } from 'lucide-react-native';
 
 export default function SyncScreen() {
@@ -214,48 +214,6 @@ export default function SyncScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Cloud Configuration Forms */}
-      <View style={GLOBAL_STYLES.glassCard}>
-        <View style={styles.cardTitleRow}>
-          <Cloud size={20} color={COLORS.primary} style={styles.titleIcon} />
-          <Text style={GLOBAL_STYLES.titleMedium}>إعدادات سحابة Supabase</Text>
-        </View>
-        
-        <Text style={styles.inputLabel}>رابط السحابة (Supabase URL)</Text>
-        <TextInput
-          style={GLOBAL_STYLES.glassInput}
-          placeholder="https://yourproject.supabase.co"
-          placeholderTextColor={COLORS.textMuted}
-          value={settings.supabaseUrl}
-          onChangeText={(txt) => handleSaveSettings({ supabaseUrl: txt })}
-          autoCapitalize="none"
-          keyboardType="url"
-        />
-
-        <Text style={styles.inputLabel}>مفتاح السحابة (Supabase Anon Key)</Text>
-        <TextInput
-          style={GLOBAL_STYLES.glassInput}
-          placeholder="eyJhbGciOi..."
-          placeholderTextColor={COLORS.textMuted}
-          value={settings.supabaseAnonKey}
-          onChangeText={(txt) => handleSaveSettings({ supabaseAnonKey: txt })}
-          secureTextEntry
-          autoCapitalize="none"
-        />
-
-        <TouchableOpacity 
-          style={[GLOBAL_STYLES.glassButton, styles.testBtn]} 
-          onPress={handleTestConnection}
-          disabled={testing}
-        >
-          {testing ? (
-            <ActivityIndicator color={COLORS.textPrimary} />
-          ) : (
-            <Text style={GLOBAL_STYLES.buttonText}>تحقق من الاتصال بالسحابة</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-
       {/* Academic Levels & Transition Wizard */}
       <View style={GLOBAL_STYLES.glassCard}>
         <View style={styles.cardTitleRow}>
@@ -309,6 +267,48 @@ export default function SyncScreen() {
             <ActivityIndicator color={COLORS.textPrimary} />
           ) : (
             <Text style={GLOBAL_STYLES.buttonText}>الانتقال للمستوى الدراسي التالي</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      {/* Cloud Configuration Forms */}
+      <View style={GLOBAL_STYLES.glassCard}>
+        <View style={styles.cardTitleRow}>
+          <Cloud size={20} color={COLORS.primary} style={styles.titleIcon} />
+          <Text style={GLOBAL_STYLES.titleMedium}>إعدادات سحابة Supabase</Text>
+        </View>
+        
+        <Text style={styles.inputLabel}>رابط السحابة (Supabase URL)</Text>
+        <TextInput
+          style={GLOBAL_STYLES.glassInput}
+          placeholder="https://yourproject.supabase.co"
+          placeholderTextColor={COLORS.textMuted}
+          value={settings.supabaseUrl}
+          onChangeText={(txt) => handleSaveSettings({ supabaseUrl: txt })}
+          autoCapitalize="none"
+          keyboardType="url"
+        />
+
+        <Text style={styles.inputLabel}>مفتاح السحابة (Supabase Anon Key)</Text>
+        <TextInput
+          style={GLOBAL_STYLES.glassInput}
+          placeholder="eyJhbGciOi..."
+          placeholderTextColor={COLORS.textMuted}
+          value={settings.supabaseAnonKey}
+          onChangeText={(txt) => handleSaveSettings({ supabaseAnonKey: txt })}
+          secureTextEntry
+          autoCapitalize="none"
+        />
+
+        <TouchableOpacity 
+          style={[GLOBAL_STYLES.glassButton, styles.testBtn]} 
+          onPress={handleTestConnection}
+          disabled={testing}
+        >
+          {testing ? (
+            <ActivityIndicator color={COLORS.textPrimary} />
+          ) : (
+            <Text style={GLOBAL_STYLES.buttonText}>تحقق من الاتصال بالسحابة</Text>
           )}
         </TouchableOpacity>
       </View>

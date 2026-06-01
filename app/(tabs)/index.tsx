@@ -5,15 +5,16 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  FlatList,
   ActivityIndicator
 } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
-import { getDbConnection, getSyncSettings, getActiveLevel } from '../services/database';
-import { COLORS, GLOBAL_STYLES } from '../components/Theme';
-import { Calendar, CheckSquare, Award, BookOpen, Clock, Plus } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+import { getDbConnection, getActiveLevel } from '../../lib/database';
+import { COLORS, GLOBAL_STYLES } from '../../components/Theme';
+import { Calendar, CheckSquare, Award, BookOpen, Clock, Plus, RefreshCw } from 'lucide-react-native';
 
-export default function HomeScreen({ navigation }: any) {
+export default function HomeScreen() {
+  const router = useRouter();
   const isFocused = useIsFocused();
   const [loading, setLoading] = useState(true);
   const [todayClasses, setTodayClasses] = useState<any[]>([]);
@@ -119,21 +120,21 @@ export default function HomeScreen({ navigation }: any) {
       {/* Grid Quick Dashboard Cards */}
       <View style={styles.gridContainer}>
         {/* GPA tracker */}
-        <TouchableOpacity style={[GLOBAL_STYLES.glassCard, styles.gridCard]} onPress={() => navigation.navigate('Grades')}>
+        <TouchableOpacity style={[GLOBAL_STYLES.glassCard, styles.gridCard]} onPress={() => router.push('/grades')}>
           <Award size={24} color={COLORS.success} style={styles.cardIcon} />
           <Text style={styles.gridVal}>{gpa > 0 ? gpa.toFixed(2) : '--'}</Text>
           <Text style={styles.gridLabel}>المعدل التراكمي</Text>
         </TouchableOpacity>
 
         {/* Pending tasks */}
-        <TouchableOpacity style={[GLOBAL_STYLES.glassCard, styles.gridCard]} onPress={() => navigation.navigate('Tasks')}>
+        <TouchableOpacity style={[GLOBAL_STYLES.glassCard, styles.gridCard]} onPress={() => router.push('/tasks')}>
           <CheckSquare size={24} color={COLORS.primary} style={styles.cardIcon} />
           <Text style={styles.gridVal}>{pendingTasksCount}</Text>
           <Text style={styles.gridLabel}>مهام أكاديمية معلقة</Text>
         </TouchableOpacity>
 
         {/* Courses enrolled */}
-        <TouchableOpacity style={[GLOBAL_STYLES.glassCard, styles.gridCard]} onPress={() => navigation.navigate('Schedule')}>
+        <TouchableOpacity style={[GLOBAL_STYLES.glassCard, styles.gridCard]} onPress={() => router.push('/schedule')}>
           <BookOpen size={24} color={COLORS.warning} style={styles.cardIcon} />
           <Text style={styles.gridVal}>{coursesCount}</Text>
           <Text style={styles.gridLabel}>المواد الدراسية</Text>
@@ -176,7 +177,7 @@ export default function HomeScreen({ navigation }: any) {
         <View style={styles.actionsRow}>
           <TouchableOpacity 
             style={styles.actionBtn} 
-            onPress={() => navigation.navigate('Schedule')}
+            onPress={() => router.push('/schedule')}
           >
             <View style={[styles.actionIconBg, { backgroundColor: COLORS.primaryGlow }]}>
               <Plus size={20} color={COLORS.primary} />
@@ -186,7 +187,7 @@ export default function HomeScreen({ navigation }: any) {
 
           <TouchableOpacity 
             style={styles.actionBtn} 
-            onPress={() => navigation.navigate('Tasks')}
+            onPress={() => router.push('/tasks')}
           >
             <View style={[styles.actionIconBg, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
               <Plus size={20} color={COLORS.success} />
@@ -196,7 +197,7 @@ export default function HomeScreen({ navigation }: any) {
 
           <TouchableOpacity 
             style={styles.actionBtn} 
-            onPress={() => navigation.navigate('Sync')}
+            onPress={() => router.push('/sync')}
           >
             <View style={[styles.actionIconBg, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
               <RefreshCw size={18} color={COLORS.warning} />
@@ -208,9 +209,6 @@ export default function HomeScreen({ navigation }: any) {
     </ScrollView>
   );
 }
-
-// Simple dummy icon bridge for action list
-import { RefreshCw } from 'lucide-react-native';
 
 const styles = StyleSheet.create({
   scrollContent: {
