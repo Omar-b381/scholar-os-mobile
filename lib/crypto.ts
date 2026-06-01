@@ -8,9 +8,24 @@ function getDerivedKey(passphrase: string): CryptoJS.lib.WordArray {
 // Encrypt payload to AES-256-CBC format (matches desktop Node crypto exactly)
 export function encryptPayload(data: any, key: string): string {
   try {
+    if (!key || typeof key !== 'string' || !key.trim()) {
+      throw new Error('مفتاح التشفير فارغ أو غير صالح. يرجى تعيين مفتاح تشفير صالح في الإعدادات.');
+    }
     const jsonStr = JSON.stringify(data);
     const hashedKey = getDerivedKey(key);
-    const iv = CryptoJS.lib.WordArray.random(16); // 16 random bytes IV
+    
+    // Generate IV with fallback in case CryptoJS.lib.WordArray.random throws in React Native
+    let iv: CryptoJS.lib.WordArray;
+    try {
+      iv = CryptoJS.lib.WordArray.random(16);
+    } catch (e) {
+      console.warn('[SyncGuard Mobile] WordArray.random failed. Using Math.random fallback for IV.');
+      const words: number[] = [];
+      for (let i = 0; i < 4; i++) {
+        words.push((Math.random() * 0x100000000) | 0);
+      }
+      iv = CryptoJS.lib.WordArray.create(words, 16);
+    }
 
     const encrypted = CryptoJS.AES.encrypt(jsonStr, hashedKey, {
       iv: iv,
@@ -22,18 +37,21 @@ export function encryptPayload(data: any, key: string): string {
     const cipherHex = encrypted.ciphertext.toString(CryptoJS.enc.Hex);
 
     return `${ivHex}:${cipherHex}`;
-  } catch (err) {
+  } catch (err: any) {
     console.error('[SyncGuard Mobile] Encryption Error:', err);
-    throw new Error('فشل تشفير البيانات الأكاديمية');
+    throw new Error('فشل تشفير البيانات الأكاديمية: ' + err.message);
   }
 }
 
 // Decrypt payload from AES-256-CBC format (matches desktop Node crypto exactly)
 export function decryptPayload(cipherText: string, key: string): any {
   try {
+    if (!key || typeof key !== 'string' || !key.trim()) {
+      throw new Error('مفتاح فك التشفير فارغ أو غير صالح. يرجى تعيين مفتاح تشفير صالح في الإعدادات.');
+    }
     const parts = cipherText.split(':');
     if (parts.length < 2) {
-      throw new Error('تنسيق البيانات المشفرة غير صالح');
+      throw new Error('تنسيق البيانات المشفرة غير صالح.');
     }
 
     const ivHex = parts.shift()!;
@@ -55,7 +73,7 @@ export function decryptPayload(cipherText: string, key: string): any {
 
     const decryptedStr = decrypted.toString(CryptoJS.enc.Utf8);
     if (!decryptedStr) {
-      throw new Error('فشل فك التشفير. يرجى التحقق من مفتاح التشفير الخاص بك.');
+      throw new Error('فشل فك التشفير. يرجى التحقق من تطابق مفتاح التشفير (Cipher Key) بين أجهزتك.');
     }
 
     return JSON.parse(decryptedStr);

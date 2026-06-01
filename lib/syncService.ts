@@ -130,6 +130,16 @@ export async function runSyncCycle(): Promise<{ success: boolean; pushed: number
     return { success: false, pushed: 0, pulled: 0, conflicts: 0, error: 'الجهاز في وضع غير متصل بالشبكة (محاكاة)' };
   }
 
+  if (!settings.encryptionKey || !settings.encryptionKey.trim()) {
+    notifySyncStatus('sync:error', 'مفتاح التشفير فارغ أو غير صالح. يرجى تعيين مفتاح تشفير صالح في الإعدادات.');
+    return { success: false, pushed: 0, pulled: 0, conflicts: 0, error: 'مفتاح التشفير فارغ أو غير صالح. يرجى تعيين مفتاح تشفير صالح في الإعدادات.' };
+  }
+
+  if (settings.encryptionKey.trim().length < 6) {
+    notifySyncStatus('sync:error', 'تنبيه أمان: يجب أن يتكون مفتاح التشفير من 6 خانات أو أكثر.');
+    return { success: false, pushed: 0, pulled: 0, conflicts: 0, error: 'تنبيه أمان: يجب أن يتكون مفتاح التشفير من 6 خانات أو أكثر.' };
+  }
+
   let pushedCount = 0;
   let pulledCount = 0;
   let conflictsResolved = 0;
