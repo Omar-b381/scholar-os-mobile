@@ -10,11 +10,10 @@ import {
   ActivityIndicator,
   Alert
 } from 'react-native';
-import { getSyncSettings, setSyncSettings } from '../services/database';
+import { getSyncSettings, setSyncSettings, getDbConnection, getAllLevels, getActiveLevel, archiveAndTransition } from '../services/database';
 import { runSyncCycle, testSupabaseConnection, registerSyncStatusListener } from '../services/syncService';
-import { getDbConnection } from '../services/database';
 import { COLORS, GLOBAL_STYLES } from '../components/Theme';
-import { Shield, Cloud, RefreshCw, AlertCircle, WifiOff, FileText, CheckCircle } from 'lucide-react-native';
+import { Shield, Cloud, RefreshCw, AlertCircle, WifiOff, FileText, CheckCircle, Award } from 'lucide-react-native';
 
 export default function SyncScreen() {
   const [loading, setLoading] = useState(false);
@@ -32,10 +31,16 @@ export default function SyncScreen() {
   const [logs, setLogs] = useState<any[]>([]);
   const [syncStatus, setSyncStatus] = useState('idle');
   const [syncMsg, setSyncMsg] = useState('');
+  
+  const [levels, setLevels] = useState<any[]>([]);
+  const [activeLevel, setActiveLevel] = useState<any>(null);
+  const [newLevelName, setNewLevelName] = useState('');
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
   useEffect(() => {
     loadSettings();
     loadSyncLogs();
+    loadLevelsData();
 
     // Subscribe to real-time SyncGuard updates
     const unsubscribe = registerSyncStatusListener((event, data) => {
@@ -80,6 +85,52 @@ export default function SyncScreen() {
     } catch (e) {
       console.warn('Failed to load sync logs', e);
     }
+  };
+
+  const loadLevelsData = async () => {
+    try {
+      const all = await getAllLevels();
+      setLevels(all || []);
+      const active = await getActiveLevel();
+      setActiveLevel(active);
+    } catch (e) {
+      console.warn('[SyncScreen] Failed to load levels:', e);
+    }
+  };
+
+  const handleTransition = async () => {
+    if (!newLevelName.trim()) {
+      Alert.alert('تنبيه', 'يرجى إدخال اسم المستوى الدراسي الجديد!');
+      return;
+    }
+
+    Alert.alert(
+      'تأكيد الانتقال الأكاديمي',
+      `تنبيه: هل أنت متأكد من الانتقال إلى المستوى الدراسي الجديد "${newLevelName}"؟\n\nسيتم أرشفة مستواك الحالي وقفل مقرراته محلياً، وتأسيس لوحة تحكم ومحاضرات جديدة نظيفة بالكامل!`,
+      [
+        { text: 'إلغاء', style: 'cancel' },
+        {
+          text: 'نعم، ابدأ الانتقال',
+          onPress: async () => {
+            setIsTransitioning(true);
+            try {
+              const res = await archiveAndTransition(newLevelName.trim());
+              if (res.success) {
+                Alert.alert('نجاح العملية', `تهانينا! تم الترقية إلى "${newLevelName}" بنجاح وأرشفة المستوى السابق.`);
+                setNewLevelName('');
+                await loadLevelsData();
+                // Silent sync to instantly reflect levels on desktop
+                runSyncCycle();
+              }
+            } catch (err: any) {
+              Alert.alert('فشل الانتقال', err.message || 'تعذر الترقية.');
+            } finally {
+              setIsTransitioning(false);
+            }
+          }
+        }
+      ]
+    );
   };
 
   const handleSaveSettings = async (updates: Partial<typeof settings>) => {
@@ -201,6 +252,63 @@ export default function SyncScreen() {
             <ActivityIndicator color={COLORS.textPrimary} />
           ) : (
             <Text style={GLOBAL_STYLES.buttonText}>تحقق من الاتصال بالسحابة</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      {/* Academic Levels & Transition Wizard */}
+      <View style={GLOBAL_STYLES.glassCard}>
+        <View style={styles.cardTitleRow}>
+          <Award size={20} color={COLORS.primary} style={styles.titleIcon} />
+          <Text style={GLOBAL_STYLES.titleMedium}>السنوات والمستويات الدراسية والأرشيف</Text>
+        </View>
+        <Text style={GLOBAL_STYLES.bodyText}>
+          تسمح لك أرشفة الفصول والمستويات الدراسية بالانتقال إلى فصول جديدة بلوحات تحكم وجداول محاضرات ومهام نظيفة بالكامل، مع الإبقاء على درجاتك السابقة وحساب معدلك التراكمي العام (Cumulative GPA) بشكل متصل وتلقائي.
+        </Text>
+
+        <View style={styles.levelsList}>
+          {levels.map((lvl) => (
+            <View 
+              key={lvl.id} 
+              style={[
+                styles.levelItem, 
+                lvl.status === 'active' ? styles.levelItemActive : styles.levelItemArchived
+              ]}
+            >
+              <View style={[
+                styles.miniBadge, 
+                lvl.status === 'active' ? styles.miniBadgeActive : styles.miniBadgeArchived
+              ]}>
+                <Text style={styles.miniBadgeText}>
+                  {lvl.status === 'active' ? 'نشط حالياً' : 'مؤرشف ومغلق'}
+                </Text>
+              </View>
+              <Text style={styles.levelNameText}>{lvl.name}</Text>
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.divider} />
+
+        <Text style={styles.inputLabel}>ترقية وانتقال للمستوى الأكاديمي التالي</Text>
+        <TextInput
+          style={GLOBAL_STYLES.glassInput}
+          placeholder="مثال: الفرقة الثانية، المستوى الثاني..."
+          placeholderTextColor={COLORS.textMuted}
+          value={newLevelName}
+          onChangeText={setNewLevelName}
+          editable={!isTransitioning}
+        />
+
+        <TouchableOpacity 
+          style={[GLOBAL_STYLES.glassButton, { marginTop: 4 }]} 
+          onPress={handleTransition}
+          disabled={isTransitioning || !newLevelName.trim()}
+        >
+          {isTransitioning ? (
+            <ActivityIndicator color={COLORS.textPrimary} />
+          ) : (
+            <Text style={GLOBAL_STYLES.buttonText}>الانتقال للمستوى الدراسي التالي</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -427,5 +535,51 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontSize: 11,
     textAlign: 'right',
+  },
+  levelsList: {
+    marginTop: 14,
+    gap: 8,
+  },
+  levelItem: {
+    flexDirection: 'row-reverse',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  levelItemActive: {
+    backgroundColor: 'rgba(16, 185, 129, 0.03)',
+    borderColor: 'rgba(16, 185, 129, 0.15)',
+  },
+  levelItemArchived: {
+    backgroundColor: 'rgba(255, 255, 255, 0.01)',
+    borderColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  levelNameText: {
+    color: COLORS.textPrimary,
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  miniBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  miniBadgeActive: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+  },
+  miniBadgeArchived: {
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  miniBadgeText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: COLORS.textPrimary,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    marginVertical: 16,
   }
 });

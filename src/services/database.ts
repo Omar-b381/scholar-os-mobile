@@ -94,7 +94,47 @@ export async function initDatabase() {
         duration_ms INTEGER DEFAULT 0,
         error TEXT
       );
+
+      CREATE TABLE IF NOT EXISTS academic_levels (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        status TEXT DEFAULT 'active',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        device_id TEXT,
+        checksum TEXT,
+        is_deleted INTEGER DEFAULT 0
+      );
     `);
+
+    // Alter courses table to add academic_level_id sync column if missing
+    const courseCols = await db.getAllAsync<{ name: string }>("PRAGMA table_info(courses)");
+    if (!courseCols.some(c => c.name === 'academic_level_id')) {
+      try {
+        await db.execAsync("ALTER TABLE courses ADD COLUMN academic_level_id TEXT;");
+      } catch (e) {
+        console.error('[SQLite Mobile] Failed to alter courses table:', e);
+      }
+    }
+
+    // Seeding default academic level if empty for backward-compatibility
+    const levelsCountRes = await db.getFirstAsync<{ count: number }>("SELECT COUNT(*) as count FROM academic_levels WHERE is_deleted = 0");
+    const levelsCount = levelsCountRes ? levelsCountRes.count : 0;
+    if (levelsCount === 0) {
+      try {
+        const defaultLevelId = 'level-default';
+        const now = new Date().toISOString();
+        await db.runAsync(`
+          INSERT OR IGNORE INTO academic_levels (id, name, status, created_at, updated_at, is_deleted)
+          VALUES (?, 'الفرقة الأولى', 'active', ?, ?, 0)
+        `, [defaultLevelId, now, now]);
+
+        // Update all existing courses to have this level
+        await db.runAsync("UPDATE courses SET academic_level_id = ? WHERE academic_level_id IS NULL", [defaultLevelId]);
+      } catch (e) {
+        console.error('[SQLite Mobile] Failed to seed default academic level:', e);
+      }
+    }
     
     console.log('[SQLite Mobile] Database successfully initialized with all SyncGuard tables.');
     return db;
@@ -237,19 +277,25 @@ export async function enqueueChange(tableName: string, recordId: string, payload
 // 1. Courses
 export async function getAllCourses() {
   const connection = getDbConnection();
-  return await connection.getAllAsync('SELECT * FROM courses WHERE is_deleted = 0 ORDER BY name ASC');
+  const activeLvl = await connection.getFirstAsync<{ id: string }>("SELECT id FROM academic_levels WHERE status = 'active' AND is_deleted = 0");
+  const activeLvlId = activeLvl ? activeLvl.id : 'level-default';
+  return await connection.getAllAsync('SELECT * FROM courses WHERE is_deleted = 0 AND (academic_level_id = ? OR academic_level_id IS NULL) ORDER BY name ASC', [activeLvlId]);
 }
 
 export async function saveCourse(course: any) {
   const connection = getDbConnection();
-  const { id, name, code, teacher_name, teacher_email, color, schedule, syllabus, notes } = course;
+  const { id, name, code, teacher_name, teacher_email, color, schedule, syllabus, notes, academic_level_id } = course;
   
-  await connection.runAsync(`
-    INSERT OR REPLACE INTO courses (id, name, code, teacher_name, teacher_email, color, schedule, syllabus, notes, is_deleted)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
-  `, [id, name, code || null, teacher_name || null, teacher_email || null, color || '#6d28d9', schedule || null, syllabus || null, notes || null]);
+  const activeLvl = await connection.getFirstAsync<{ id: string }>("SELECT id FROM academic_levels WHERE status = 'active' AND is_deleted = 0");
+  const activeLvlId = activeLvl ? activeLvl.id : 'level-default';
+  const levelId = academic_level_id || activeLvlId;
 
-  await enqueueChange('courses', id, course);
+  await connection.runAsync(`
+    INSERT OR REPLACE INTO courses (id, name, code, teacher_name, teacher_email, color, schedule, syllabus, notes, academic_level_id, is_deleted)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+  `, [id, name, code || null, teacher_name || null, teacher_email || null, color || '#6d28d9', schedule || null, syllabus || null, notes || null, levelId]);
+
+  await enqueueChange('courses', id, { ...course, academic_level_id: levelId });
 }
 
 export async function deleteCourse(id: string) {
@@ -328,4 +374,69 @@ export async function deleteGrade(id: string) {
   const connection = getDbConnection();
   await connection.runAsync('UPDATE grades SET is_deleted = 1 WHERE id = ?', [id]);
   await enqueueChange('grades', id, { id }, 1);
+}
+
+// 5. Academic Levels CRUD
+export async function getAllLevels() {
+  const connection = getDbConnection();
+  return await connection.getAllAsync('SELECT * FROM academic_levels WHERE is_deleted = 0 ORDER BY created_at ASC');
+}
+
+export async function getActiveLevel() {
+  const connection = getDbConnection();
+  return await connection.getFirstAsync<{ id: string; name: string; status: string; created_at: string; updated_at: string }>(
+    "SELECT * FROM academic_levels WHERE status = 'active' AND is_deleted = 0"
+  );
+}
+
+export async function saveLevel(level: any) {
+  const connection = getDbConnection();
+  const { id, name, status } = level;
+  const now = new Date().toISOString();
+  await connection.runAsync(`
+    INSERT INTO academic_levels (id, name, status, created_at, updated_at, is_deleted)
+    VALUES (?, ?, ?, ?, ?, 0)
+    ON CONFLICT(id) DO UPDATE SET
+      name = excluded.name,
+      status = excluded.status,
+      updated_at = excluded.updated_at
+  `, [id, name, status || 'active', now, now]);
+  
+  await enqueueChange('academic_levels', id, level);
+}
+
+export async function deleteLevel(id: string) {
+  const connection = getDbConnection();
+  await connection.runAsync('UPDATE academic_levels SET is_deleted = 1 WHERE id = ?', [id]);
+  await enqueueChange('academic_levels', id, { id }, 1);
+}
+
+export async function archiveAndTransition(newLevelName: string) {
+  const connection = getDbConnection();
+  let newId = '';
+  
+  await connection.withTransactionAsync(async () => {
+    const now = new Date().toISOString();
+    
+    // 1. Archive current active level
+    await connection.runAsync("UPDATE academic_levels SET status = 'archived', updated_at = ? WHERE status = 'active'", [now]);
+    
+    // Get all archived levels to enqueue their status updates
+    const archivedLevels = await connection.getAllAsync<{ id: string }>("SELECT id FROM academic_levels WHERE status = 'archived' AND is_deleted = 0");
+    for (const lvl of archivedLevels) {
+      await enqueueChange('academic_levels', lvl.id, { id: lvl.id, status: 'archived' });
+    }
+
+    // 2. Create the new active academic year level
+    newId = 'level-' + Math.random().toString(36).substring(2, 10);
+    
+    await connection.runAsync(`
+      INSERT INTO academic_levels (id, name, status, created_at, updated_at, is_deleted)
+      VALUES (?, ?, 'active', ?, ?, 0)
+    `, [newId, newLevelName, now, now]);
+    
+    await enqueueChange('academic_levels', newId, { id: newId, name: newLevelName, status: 'active' });
+  });
+
+  return { success: true, newLevelId: newId };
 }

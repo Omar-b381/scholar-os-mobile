@@ -11,15 +11,16 @@ import {
   ActivityIndicator
 } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
-import { getGrades, saveGrade, deleteGrade, getAllCourses } from '../services/database';
+import { getGrades, saveGrade, deleteGrade, getAllCourses, getDbConnection } from '../services/database';
 import { COLORS, GLOBAL_STYLES } from '../components/Theme';
-import { Plus, Award, Trash2, X, ChevronLeft, Percent } from 'lucide-react-native';
+import { Plus, Award, Trash2, X, ChevronLeft, Percent, Lock } from 'lucide-react-native';
 
 export default function GradesScreen() {
   const isFocused = useIsFocused();
   const [loading, setLoading] = useState(true);
   const [grades, setGrades] = useState<any[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
+  const [allCourses, setAllCourses] = useState<any[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
 
   // GPA calculation state
@@ -41,8 +42,13 @@ export default function GradesScreen() {
   const loadData = async () => {
     try {
       setLoading(true);
+      const db = getDbConnection();
+
       const activeCourses = await getAllCourses() as any[];
       setCourses(activeCourses || []);
+
+      const all = await db.getAllAsync('SELECT * FROM courses WHERE is_deleted = 0') as any[];
+      setAllCourses(all || []);
 
       const activeGrades = await getGrades() as any[];
       setGrades(activeGrades || []);
@@ -181,22 +187,27 @@ export default function GradesScreen() {
       ) : (
         <ScrollView contentContainerStyle={styles.listContent}>
           {grades.map(item => {
-            const course = courses.find(c => c.id === item.course_id);
+            const course = allCourses.find(c => c.id === item.course_id);
             const courseName = course ? course.name : 'مقرر دراسي';
             const courseColor = course ? course.color : '#6d28d9';
             const letter = getLetterGrade(item.grade_value);
+            const isArchived = !courses.some(c => c.id === item.course_id);
             
             return (
               <View key={item.id} style={GLOBAL_STYLES.glassCard}>
                 <View style={styles.gradeRow}>
-                  <TouchableOpacity onPress={() => handleDeleteGrade(item.id)}>
-                    <Trash2 size={16} color={COLORS.danger} />
-                  </TouchableOpacity>
+                  {isArchived ? (
+                    <Lock size={15} color={COLORS.textMuted} style={{ marginLeft: 6, opacity: 0.6 }} />
+                  ) : (
+                    <TouchableOpacity onPress={() => handleDeleteGrade(item.id)}>
+                      <Trash2 size={16} color={COLORS.danger} />
+                    </TouchableOpacity>
+                  )}
 
                   <View style={styles.gradeTextCol}>
                     <Text style={styles.courseName}>{courseName}</Text>
                     <Text style={styles.semesterName}>
-                      {item.semester} | {item.credit_hours} ساعات معتمدة
+                      {item.semester} {isArchived && '(مؤرشف)'} | {item.credit_hours} ساعات معتمدة
                     </Text>
                   </View>
 

@@ -9,7 +9,7 @@ import {
   ActivityIndicator
 } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
-import { getDbConnection, getSyncSettings } from '../services/database';
+import { getDbConnection, getSyncSettings, getActiveLevel } from '../services/database';
 import { COLORS, GLOBAL_STYLES } from '../components/Theme';
 import { Calendar, CheckSquare, Award, BookOpen, Clock, Plus } from 'lucide-react-native';
 
@@ -20,6 +20,7 @@ export default function HomeScreen({ navigation }: any) {
   const [gpa, setGpa] = useState<number>(0.0);
   const [pendingTasksCount, setPendingTasksCount] = useState<number>(0);
   const [coursesCount, setCoursesCount] = useState<number>(0);
+  const [activeLevel, setActiveLevel] = useState<any>(null);
 
   useEffect(() => {
     if (isFocused) {
@@ -32,6 +33,11 @@ export default function HomeScreen({ navigation }: any) {
       setLoading(true);
       const db = getDbConnection();
       
+      // 0. Get Active Academic Level
+      const lvl = await getActiveLevel();
+      setActiveLevel(lvl);
+      const activeLvlId = lvl ? lvl.id : 'level-default';
+
       // 1. Get GPA
       const grades = await db.getAllAsync('SELECT * FROM grades WHERE is_deleted = 0') as any[];
       if (grades.length > 0) {
@@ -48,15 +54,22 @@ export default function HomeScreen({ navigation }: any) {
         setGpa(0.0);
       }
 
-      // 2. Get Courses Count
-      const courses = await db.getAllAsync('SELECT * FROM courses WHERE is_deleted = 0') as any[];
+      // 2. Get Active Courses Count
+      const courses = await db.getAllAsync('SELECT * FROM courses WHERE is_deleted = 0 AND (academic_level_id = ? OR academic_level_id IS NULL)', [activeLvlId]) as any[];
       setCoursesCount(courses.length);
 
-      // 3. Get Pending Tasks
-      const tasks = await db.getAllAsync("SELECT COUNT(*) as count FROM tasks WHERE status = 'pending' AND is_deleted = 0") as any[];
+      // 3. Get Active Pending Tasks
+      const tasks = await db.getAllAsync(`
+        SELECT COUNT(*) as count FROM tasks t
+        LEFT JOIN courses c ON t.course_id = c.id
+        WHERE t.status = 'pending' 
+          AND t.is_deleted = 0 
+          AND (c.is_deleted = 0 OR t.course_id IS NULL)
+          AND (c.academic_level_id = ? OR c.academic_level_id IS NULL)
+      `, [activeLvlId]) as any[];
       setPendingTasksCount(tasks[0]?.count || 0);
 
-      // 4. Get Today's Classes
+      // 4. Get Today's Active Classes
       const daysArabic = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
       const currentDay = daysArabic[new Date().getDay()];
       
@@ -64,9 +77,12 @@ export default function HomeScreen({ navigation }: any) {
         SELECT s.*, c.name as course_name, c.color as course_color
         FROM schedule_slots s
         JOIN courses c ON s.course_id = c.id
-        WHERE s.day_of_week = ? AND s.is_deleted = 0 AND c.is_deleted = 0
+        WHERE s.day_of_week = ? 
+          AND s.is_deleted = 0 
+          AND c.is_deleted = 0
+          AND (c.academic_level_id = ? OR c.academic_level_id IS NULL)
         ORDER BY s.start_time ASC
-      `, [currentDay]) as any[];
+      `, [currentDay, activeLvlId]) as any[];
 
       setTodayClasses(slots || []);
       setLoading(false);
@@ -91,6 +107,13 @@ export default function HomeScreen({ navigation }: any) {
       <View style={styles.welcomeContainer}>
         <Text style={styles.welcomeText}>أهلاً بك في ScholarOS 🎓</Text>
         <Text style={styles.subtext}>ثابر، فالنجاح الأكاديمي يبدأ بخطوات منظمة اليوم!</Text>
+        
+        {activeLevel && (
+          <View style={styles.levelBadgeContainer}>
+            <Award size={13} color={COLORS.primary} style={{ marginLeft: 6 }} />
+            <Text style={styles.levelBadgeText}>المستوى الدراسي الحالي: {activeLevel.name}</Text>
+          </View>
+        )}
       </View>
 
       {/* Grid Quick Dashboard Cards */}
@@ -324,6 +347,23 @@ const styles = StyleSheet.create({
   actionText: {
     color: COLORS.textSecondary,
     fontSize: 12,
+    fontWeight: 'bold',
+  },
+  levelBadgeContainer: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    backgroundColor: COLORS.primaryGlow,
+    alignSelf: 'flex-end',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(124, 58, 237, 0.15)',
+  },
+  levelBadgeText: {
+    color: COLORS.primary,
+    fontSize: 11,
     fontWeight: 'bold',
   }
 });
