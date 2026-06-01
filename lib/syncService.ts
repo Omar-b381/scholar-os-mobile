@@ -265,8 +265,17 @@ export async function runSyncCycle(): Promise<{ success: boolean; pushed: number
 
           if (hasLocalChange && hasLocalChange.cnt > 0) {
             // CONFLICT RESOLUTION
-            winningRecord = resolveConflict(localRecord, decryptedPayload, remoteRecord.table_name);
+            const resolved = resolveConflict(localRecord, decryptedPayload, remoteRecord.table_name);
+            winningRecord = { ...localRecord, ...resolved };
             conflictsResolved++;
+          } else {
+            // Merge existing local fields so partial updates (like soft delete) don't wipe out other columns
+            winningRecord = { ...localRecord, ...decryptedPayload };
+          }
+        } else {
+          // Record does not exist locally. If it is already marked as deleted, we can safely skip inserting it.
+          if (decryptedPayload.is_deleted === 1 || decryptedPayload.is_deleted === true) {
+            continue;
           }
         }
 
