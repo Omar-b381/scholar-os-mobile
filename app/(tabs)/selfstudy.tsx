@@ -818,7 +818,7 @@ const styles = StyleSheet.create({
   },
   progressVal: {
     fontSize: 15,
-    fontWeight: '950',
+    fontWeight: '900',
   },
   progressBg: {
     height: 8,
