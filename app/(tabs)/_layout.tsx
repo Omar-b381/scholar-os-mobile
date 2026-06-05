@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { Home, Calendar, CheckSquare, Award, RefreshCw } from 'lucide-react-native';
+import { Home, Calendar, CheckSquare, Award, RefreshCw, BookMarked } from 'lucide-react-native';
 import { COLORS } from '../../components/Theme';
 
 export default function TabsLayout() {
@@ -44,6 +44,13 @@ export default function TabsLayout() {
         options={{
           title: 'المهام',
           tabBarIcon: ({ color }) => <CheckSquare size={20} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="selfstudy"
+        options={{
+          title: 'التعلم الحر',
+          tabBarIcon: ({ color }) => <BookMarked size={20} color={color} />,
         }}
       />
       <Tabs.Screen
